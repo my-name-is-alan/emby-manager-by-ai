@@ -1,0 +1,46 @@
+# Dockerfile for international servers (without China mirrors)
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app
+
+COPY web ./web
+WORKDIR /app/web
+RUN npm ci && npm run build
+
+FROM node:18-alpine AS backend-builder
+
+RUN apk add --no-cache python3 make g++ openssl
+
+WORKDIR /app/server
+
+COPY server/package*.json ./
+RUN npm ci
+
+COPY server ./
+RUN npx prisma generate && npm run build
+
+FROM node:18-alpine
+
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+COPY --from=backend-builder /app/server/package*.json ./
+COPY --from=backend-builder /app/server/node_modules ./node_modules
+COPY --from=backend-builder /app/server/prisma ./prisma
+COPY --from=backend-builder /app/server/dist ./dist
+
+COPY --from=frontend-builder /app/web/dist ./public
+
+RUN mkdir -p /app/data
+
+EXPOSE 3000
+
+ENV NODE_ENV=production
+ENV DATABASE_URL=file:/app/data/dev.db
+ENV PORT=3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+CMD npx prisma migrate deploy && npm start

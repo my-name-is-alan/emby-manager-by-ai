@@ -1,0 +1,39 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.*
+README.md
+DESIGN.md
+
+# Server
+server/node_modules
+server/dev.db
+server/dev.db-journal
+server/.env
+
+# Web
+web/node_modules
+web/dist
+web/.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Data
+data/
+*.db
+*.db-journal
