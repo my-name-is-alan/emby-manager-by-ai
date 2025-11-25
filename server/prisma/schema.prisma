@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  username        String    @unique
+  password        String    // 加密后的密码
+  embyId          String?   // 对应 Emby Server 中的 User Id
+  embyAccessToken String?   // Emby Access Token for API calls
+  role            String    @default("user") // "admin" | "user"
+  isActive        Boolean   @default(true)
+  expiryDate      DateTime? // 账号到期时间，null 表示永久
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // 关联
+  usedCdk     Cdk?
+}
+
+model Cdk {
+  id                Int      @id @default(autoincrement())
+  code              String   @unique // 激活码字符串
+  status            String   @default("unused") // "unused" | "used" | "expired"
+  cdkValidDays      Int      @default(365) // CDK本身的有效期(多少天内可以使用),默认365天
+  memberValidDays   Int      // 用户激活后的会员有效天数,0表示永久
+  templateId        Int?     // 关联的用户模板 ID
+  
+  createdById       Int      // 创建者 ID (简化，不强制关联 User 表以避免循环依赖复杂性，实际可关联)
+  usedById          Int?     @unique // 使用者 ID
+  usedAt            DateTime?
+  createdAt         DateTime @default(now())
+  
+  // 关联
+  user              User?    @relation(fields: [usedById], references: [id])
+  template          Template? @relation(fields: [templateId], references: [id])
+}
+
+model Template {
+  id            Int      @id @default(autoincrement())
+  name          String   // 模板名称
+  description   String?  // 模板描述
+  validDays     Int      // 有效天数，0表示永久
+  policy        String   // JSON 字符串，存储 Emby User Policy
+  configuration String   // JSON 字符串，存储 Emby User Configuration
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  cdks          Cdk[]
+}
+
+model MediaItem {
+  id              Int      @id @default(autoincrement())
+  embyId          String   @unique // Emby Item ID
+  name            String   // 媒体标题
+  overview        String?  // 简介
+  type            String   // Movie, Series, Season, Episode, etc.
+  productionYear  Int?     // 年份
+  dateCreated     DateTime // Emby 中的创建时间
+  backdropUrl     String?  // 背景图 URL
+  posterUrl       String?  // 海报 URL
+  webUrl          String?  // Web 播放链接
+  notifiedAt      DateTime @default(now()) // 收到 webhook 通知的时间
+  
+  @@index([dateCreated])
+}
+
+model SystemConfig {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  description String?
+}
